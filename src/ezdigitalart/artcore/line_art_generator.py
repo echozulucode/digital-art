@@ -31,7 +31,7 @@ def get_average_rgb_square(pxa, image_width, image_height, x_start, y_start, wid
 
                 if transparent_count >= width:
                     # return transparent color
-                    return (0,0,0,0)
+                    return (0, 0, 0, 0)
 
                 if a > 0:
                     num += 1
@@ -58,7 +58,7 @@ class LineArtGenerator:
         1. Read Image
            a. get average color / darkness for grid (alt: circle?)
         2. Create list of starting / ending points
-        3. Iterate all points. Add number of passes based on darkness... Best fit line for 
+        3. Iterate all points. Add number of passes based on darkness... Best fit line for
         """
         im = Image.open(input_path)
         px = im.load()
@@ -71,7 +71,11 @@ class LineArtGenerator:
         size_per_pixel = p_x if p_x > p_y else p_y
         regions_x = math.ceil(w / size_per_pixel)
         regions_y = math.ceil(h / size_per_pixel)
-        dwg = svgwrite.Drawing(output_path, profile="tiny", size=(regions_x * size_per_pixel, regions_y * size_per_pixel))
+        dwg = svgwrite.Drawing(
+            output_path,
+            profile="tiny",
+            size=(regions_x * size_per_pixel, regions_y * size_per_pixel),
+        )
 
         # Import the color and luminance region into custom sized grid
         for x in range(regions_x):
@@ -87,21 +91,32 @@ class LineArtGenerator:
         # add points surrounding the image as the valid line start and end points
         for x in range(regions_x + 1):
             for y in range(regions_y + 1):
-                left_edge = (x == 0)
-                right_edge = (x >= regions_x)
-                top_edge = (y == 0)
-                bottom_edge =  (y >= regions_y)
+                left_edge = x == 0
+                right_edge = x >= regions_x
+                top_edge = y == 0
+                bottom_edge = y >= regions_y
                 if left_edge or right_edge or top_edge or bottom_edge:
-                  region_location = (x * size_per_pixel, y * size_per_pixel)
-                  image_data.add_endpoint(x, y, region_location, left_edge, right_edge, top_edge, bottom_edge)
+                    region_location = (x * size_per_pixel, y * size_per_pixel)
+                    image_data.add_endpoint(
+                        x,
+                        y,
+                        region_location,
+                        left_edge,
+                        right_edge,
+                        top_edge,
+                        bottom_edge,
+                    )
 
         # paint the endpoints (for debug)
         for endpoint in image_data.endpoints:
             # Draw a small white circle in the top left of box
-            dwg.add(dwg.circle(center=endpoint.location,
-                r=1,
-                stroke=svgwrite.rgb(15, 15, 15, '%'),
-                fill='white')
+            dwg.add(
+                dwg.circle(
+                    center=endpoint.location,
+                    r=1,
+                    stroke=svgwrite.rgb(15, 15, 15, "%"),
+                    fill="white",
+                )
             )
 
         image_data.initialize_best_fit()
@@ -125,10 +140,17 @@ class LineArtGenerator:
 
             iteration_count += 1
             if not done:
-                print(f'iterations = {iteration_count}, remaining = {remaining}')
+                print(f"iterations = {iteration_count}, remaining = {remaining}")
 
         for line in image_data.lines:
-            dwg.add(dwg.line(line.p1, line.p2, stroke=svgwrite.rgb(line.ci[0], line.ci[1], line.ci[2]), stroke_width=1))
+            dwg.add(
+                dwg.line(
+                    line.p1,
+                    line.p2,
+                    stroke=svgwrite.rgb(line.ci[0], line.ci[1], line.ci[2]),
+                    stroke_width=1,
+                )
+            )
 
         if self.debug:
             # output our svg image as raw xml
@@ -140,4 +162,6 @@ class LineArtGenerator:
         if self.export_png_path:
             if pathlib.Path(output_path).exists():
                 drawing = svg2rlg(output_path)
-                renderPM.drawToFile(drawing, self.export_png_path, fmt="PNG", bg=0x00ffffff)
+                renderPM.drawToFile(
+                    drawing, self.export_png_path, fmt="PNG", bg=0x00FFFFFF
+                )

@@ -1,5 +1,7 @@
 class ImagePoint:
-    def __init__(self, x_index, y_index, location, left_edge, right_edge, top_edge, bottom_edge) -> None:
+    def __init__(
+        self, x_index, y_index, location, left_edge, right_edge, top_edge, bottom_edge
+    ) -> None:
         self.x_index = x_index
         self.y_index = y_index
         self.location = location
@@ -25,7 +27,7 @@ class ImagePoint:
         return result
 
     def unique_id(self):
-        return f'{self.x_index}_{self.y_index}'
+        return f"{self.x_index}_{self.y_index}"
 
     def line_id(self, other):
-        return f'{self.x_index}_{self.y_index}_{other.x_index}_{other.y_index}'
+        return f"{self.x_index}_{self.y_index}_{other.x_index}_{other.y_index}"

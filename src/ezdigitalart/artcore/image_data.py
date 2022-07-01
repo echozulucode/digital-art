@@ -10,6 +10,7 @@ WhiteThreshold = 95
 DeltaEGoodThreshold = 10.0
 DeltaEBadThreshold = 100.0
 
+
 def compare_lab(l1, l2):
     dl = l2[0] - l1[0]
     da = l2[1] - l1[1]
@@ -17,7 +18,8 @@ def compare_lab(l1, l2):
     delta_e = math.sqrt(dl * dl + da * da + db * db)
     return delta_e
 
-def convert_rgb_to_lab ( inputColor ) :
+
+def convert_rgb_to_lab(inputColor):
 
     num = 0
     RGB = [0, 0, 0]
@@ -26,47 +28,53 @@ def convert_rgb_to_lab ( inputColor ) :
     for value in input_rgb:
         value = float(value) / 255
 
-        if value > 0.04045 :
-            value = ( ( value + 0.055 ) / 1.055 ) ** 2.4
-        else :
+        if value > 0.04045:
+            value = ((value + 0.055) / 1.055) ** 2.4
+        else:
             value = value / 12.92
 
         RGB[num] = value * 100
         num = num + 1
 
-    XYZ = [0, 0, 0,]
+    XYZ = [
+        0,
+        0,
+        0,
+    ]
 
-    X = RGB [0] * 0.4124 + RGB [1] * 0.3576 + RGB [2] * 0.1805
-    Y = RGB [0] * 0.2126 + RGB [1] * 0.7152 + RGB [2] * 0.0722
-    Z = RGB [0] * 0.0193 + RGB [1] * 0.1192 + RGB [2] * 0.9505
-    XYZ[ 0 ] = round( X, 4 )
-    XYZ[ 1 ] = round( Y, 4 )
-    XYZ[ 2 ] = round( Z, 4 )
+    X = RGB[0] * 0.4124 + RGB[1] * 0.3576 + RGB[2] * 0.1805
+    Y = RGB[0] * 0.2126 + RGB[1] * 0.7152 + RGB[2] * 0.0722
+    Z = RGB[0] * 0.0193 + RGB[1] * 0.1192 + RGB[2] * 0.9505
+    XYZ[0] = round(X, 4)
+    XYZ[1] = round(Y, 4)
+    XYZ[2] = round(Z, 4)
 
-    XYZ[ 0 ] = float( XYZ[ 0 ] ) / 95.047         # ref_X =  95.047   Observer= 2°, Illuminant= D65
-    XYZ[ 1 ] = float( XYZ[ 1 ] ) / 100.0          # ref_Y = 100.000
-    XYZ[ 2 ] = float( XYZ[ 2 ] ) / 108.883        # ref_Z = 108.883
+    XYZ[0] = float(XYZ[0]) / 95.047  # ref_X =  95.047   Observer= 2°, Illuminant= D65
+    XYZ[1] = float(XYZ[1]) / 100.0  # ref_Y = 100.000
+    XYZ[2] = float(XYZ[2]) / 108.883  # ref_Z = 108.883
 
     num = 0
-    for value in XYZ :
+    for value in XYZ:
 
-        if value > 0.008856 :
-            value = value ** ( 0.3333333333333333 )
-        else :
-            value = ( 7.787 * value ) + ( 16 / 116 )
+        if value > 0.008856:
+            value = value ** (0.3333333333333333)
+        else:
+            value = (7.787 * value) + (16 / 116)
 
         XYZ[num] = value
         num = num + 1
 
-    L = ( 116 * XYZ[ 1 ] ) - 16
-    a = 500 * ( XYZ[ 0 ] - XYZ[ 1 ] )
-    b = 200 * ( XYZ[ 1 ] - XYZ[ 2 ] )
-    return (round( L, 4 ), round( a, 4 ), round( b, 4 ))
+    L = (116 * XYZ[1]) - 16
+    a = 500 * (XYZ[0] - XYZ[1])
+    b = 200 * (XYZ[1] - XYZ[2])
+    return (round(L, 4), round(a, 4), round(b, 4))
+
 
 def rotated_sequence(seq, start_index):
     n = len(seq)
     for i in range(n):
         yield seq[(i + start_index) % n]
+
 
 def convert_rgb_to_luminance(rgb_tuple):
     if isinstance(rgb_tuple[0], int):
@@ -78,25 +86,27 @@ def convert_rgb_to_luminance(rgb_tuple):
         G = rgb_tuple[1] / 255.0
         B = rgb_tuple[2] / 255.0
     else:
-        raise Exception('invalid')
+        raise Exception("invalid")
 
-    return (0.299*R + 0.587*G + 0.114*B)
+    return 0.299 * R + 0.587 * G + 0.114 * B
+
 
 def check_line_collision(x1, y1, x2, y2, x3, y3, x4, y4):
     # LINE/LINE
-    
+
     # calculate the direction of the lines
-    denominator = ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1))
+    denominator = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
     if denominator:
-        u_a = ((x4-x3)*(y1-y3) - (y4-y3)*(x1-x3)) / denominator
-        u_b = ((x2-x1)*(y1-y3) - (y2-y1)*(x1-x3)) / denominator
+        u_a = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator
+        u_b = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator
     else:
         # invalidate
         u_a = -1.0
         u_b = -1.0
 
     # if uA and uB are between 0-1, lines are colliding
-    return (u_a >= 0.0 and u_a <= 1.0 and u_b >= 0.0 and u_b <= 1.0)
+    return u_a >= 0.0 and u_a <= 1.0 and u_b >= 0.0 and u_b <= 1.0
+
 
 class ImageData:
     def __init__(self) -> None:
@@ -115,7 +125,7 @@ class ImageData:
         self.grid_size = 32
 
     def add_cell(self, column_index, row_index, ci, location, size):
-        key = f'{column_index}_{row_index}'
+        key = f"{column_index}_{row_index}"
         if key not in self.lookup:
             if column_index > self.max_x_index:
                 self.max_x_index = column_index
@@ -127,7 +137,7 @@ class ImageData:
 
             if is_transparent:
                 luminance = 0
-                lab = (0,0,0)
+                lab = (0, 0, 0)
                 desired_passes = 0
             else:
                 luminance = convert_rgb_to_luminance(ci)
@@ -136,18 +146,32 @@ class ImageData:
                 if lab[0] > WhiteThreshold:
                     desired_passes = 0
 
-            cell_data = ImageCell(key, indices, location, size, ci, luminance, desired_passes, lab, is_transparent)
+            cell_data = ImageCell(
+                key,
+                indices,
+                location,
+                size,
+                ci,
+                luminance,
+                desired_passes,
+                lab,
+                is_transparent,
+            )
             self.lookup[key] = cell_data
             self.items.append(cell_data)
         else:
-            print(f'duplicate: {key}')
+            print(f"duplicate: {key}")
 
-    def add_endpoint(self, x_index, y_index, location, left_edge, right_edge, top_edge, bottom_edge):
-        endpoint = ImagePoint(x_index, y_index, location, left_edge, right_edge, top_edge, bottom_edge)
+    def add_endpoint(
+        self, x_index, y_index, location, left_edge, right_edge, top_edge, bottom_edge
+    ):
+        endpoint = ImagePoint(
+            x_index, y_index, location, left_edge, right_edge, top_edge, bottom_edge
+        )
         self.endpoints.append(endpoint)
 
     def get_cell(self, column_index, row_index):
-        key = f'{column_index}_{row_index}'
+        key = f"{column_index}_{row_index}"
         if key in self.lookup:
             return self.lookup[key]
         else:
@@ -167,16 +191,22 @@ class ImageData:
         collision = check_line_collision(x1, y1, x2, y2, cx1, cy1, cx1, cy1 + height)
 
         if not collision:
-          # check right
-          collision = check_line_collision(x1, y1, x2, y2, cx1 + width, cy1, cx1 + width, cy1 + height)
+            # check right
+            collision = check_line_collision(
+                x1, y1, x2, y2, cx1 + width, cy1, cx1 + width, cy1 + height
+            )
 
-          if not collision:
-              # check top
-              collision = check_line_collision(x1, y1, x2, y2, cx1, cy1, cx1 + width, cy1)
+            if not collision:
+                # check top
+                collision = check_line_collision(
+                    x1, y1, x2, y2, cx1, cy1, cx1 + width, cy1
+                )
 
-              if not collision:
-                # check bottom
-                collision = check_line_collision(x1, y1, x2, y2, cx1, cy1 + height, cx1 + width, cy1 + height)
+                if not collision:
+                    # check bottom
+                    collision = check_line_collision(
+                        x1, y1, x2, y2, cx1, cy1 + height, cx1 + width, cy1 + height
+                    )
 
         return collision
 
@@ -192,14 +222,13 @@ class ImageData:
         # check left
         collision = check_line_collision(x1, y1, x2, y2, cx1, 0.0, cx1, height)
         if not collision:
-          # check right
-          collision = check_line_collision(x1, y1, x2, y2, cx2, 0, cx2, height)
+            # check right
+            collision = check_line_collision(x1, y1, x2, y2, cx2, 0, cx2, height)
 
         return collision
 
     def get_intersecting_cells(self, line_start, line_end):
-        """
-        """
+        """ """
         result = []
 
         for x in range(self.max_x_index):
@@ -209,7 +238,7 @@ class ImageData:
                         cell_data = self.get_cell(x, y)
                         if cell_data:
                             result.append(cell_data)
-        
+
         return result
 
     def initialize_best_fit(self):
@@ -231,8 +260,15 @@ class ImageData:
                     bad_fit = 0
                     p1 = item_tuple[0]
                     p2 = item_tuple[1]
-                    if self.check_cell_collision(entry.cell_indices[0], entry.cell_indices[1], p1.location, p2.location):
-                        cell_list = self.get_intersecting_cells(p1.location, p2.location)
+                    if self.check_cell_collision(
+                        entry.cell_indices[0],
+                        entry.cell_indices[1],
+                        p1.location,
+                        p2.location,
+                    ):
+                        cell_list = self.get_intersecting_cells(
+                            p1.location, p2.location
+                        )
                         if cell_list:
                             for cell_item in cell_list:
                                 if entry.key == cell_item.key:
@@ -243,14 +279,22 @@ class ImageData:
                                     if delta_e < DeltaEGoodThreshold:
                                         good_fit += 1
                                     elif delta_e > DeltaEBadThreshold:
-                                        if cell_item.passes + 1 >= cell_item.maximum_passes:
+                                        if (
+                                            cell_item.passes + 1
+                                            >= cell_item.maximum_passes
+                                        ):
                                             bad_fit += 1
                                     else:
-                                        if cell_item.passes + 1 >= cell_item.maximum_passes:
+                                        if (
+                                            cell_item.passes + 1
+                                            >= cell_item.maximum_passes
+                                        ):
                                             bad_fit += 1
 
                             if bad_fit == 0:
-                                string_line = StringLine(key, p1.location, p2.location, entry.ci)
+                                string_line = StringLine(
+                                    key, p1.location, p2.location, entry.ci
+                                )
                                 self.line_lookup[key] = string_line
                                 self.lines.append(string_line)
                                 entry.last_index = index

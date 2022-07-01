@@ -40,7 +40,7 @@ class PixelizeConverter:
     def convert(self, input_path, output_path):
         im = Image.open(input_path)
         px = im.load()
-        
+
         w = im.width
         h = im.height
         p_x = math.ceil(im.width / self.cols)
@@ -70,4 +70,6 @@ class PixelizeConverter:
         if self.export_png_path:
             if pathlib.Path(output_path).exists():
                 drawing = svg2rlg(output_path)
-                renderPM.drawToFile(drawing, self.export_png_path, fmt="PNG", bg=0x00ffffff)
+                renderPM.drawToFile(
+                    drawing, self.export_png_path, fmt="PNG", bg=0x00FFFFFF
+                )

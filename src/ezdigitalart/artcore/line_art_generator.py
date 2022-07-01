@@ -122,8 +122,10 @@ class LineArtGenerator:
         image_data.initialize_best_fit()
 
         done = False
-        maximum_iterations = 1000
+        maximum_iterations = 100
         iteration_count = 0
+        last_remaining = 0
+
         while not done:
             remaining = 0
             for entry in image_data.items:
@@ -131,16 +133,20 @@ class LineArtGenerator:
                     remaining += entry.desired_passes - entry.passes
                     image_data.create_best_fit_line(entry)
 
+            maximum_iterations -= 1
+
             if remaining == 0:
                 done = True
-
-            maximum_iterations -= 1
-            if maximum_iterations <= 0:
+            elif remaining == last_remaining:
+                done = True
+            elif maximum_iterations <= 0:
                 done = True
 
             iteration_count += 1
             if not done:
                 print(f"iterations = {iteration_count}, remaining = {remaining}")
+
+            last_remaining = remaining
 
         for line in image_data.lines:
             dwg.add(

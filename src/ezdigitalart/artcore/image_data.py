@@ -5,10 +5,15 @@ from tracemalloc import start
 from .image_cell import ImageCell
 from .image_point import ImagePoint
 from .string_line import StringLine
+from .image_cell_collection import ImageCellCollection
+import progressbar
+
 
 WhiteThreshold = 95
 DeltaEGoodThreshold = 10.0
 DeltaEBadThreshold = 100.0
+TransparentRatioThreshold = 0.8
+WhiteRatioThreshold = 0.75
 
 
 def compare_lab(l1, l2):
@@ -118,11 +123,12 @@ class ImageData:
         self.line_lookup = dict()
         self.lines = []
         self.endpoint_combinations = None
+        self.lab_white = convert_rgb_to_lab((255,255,255))
 
         # the number of desired passes for 0% luminance
         self.passes_scaler = 10
 
-        self.grid_size = 32
+        self.grid_size = 0
 
     def add_cell(self, column_index, row_index, ci, location, size):
         key = f"{column_index}_{row_index}"
@@ -139,12 +145,15 @@ class ImageData:
                 luminance = 0
                 lab = (0, 0, 0)
                 desired_passes = 0
+                delta_e_white = 0
             else:
                 luminance = convert_rgb_to_luminance(ci)
                 lab = convert_rgb_to_lab(ci)
                 desired_passes = int(round((1.0 - luminance) * self.passes_scaler, 0))
                 if lab[0] > WhiteThreshold:
                     desired_passes = 0
+                delta_e_white = compare_lab(lab, self.lab_white)
+                
 
             cell_data = ImageCell(
                 key,
@@ -156,6 +165,7 @@ class ImageData:
                 desired_passes,
                 lab,
                 is_transparent,
+                delta_e_white
             )
             self.lookup[key] = cell_data
             self.items.append(cell_data)
@@ -241,66 +251,54 @@ class ImageData:
 
         return result
 
-    def initialize_best_fit(self):
+    def create_best_fit_lines(self):
         all_combinations = itertools.combinations(self.endpoints, 2)
         self.endpoint_combinations = []
         for item_tuple in all_combinations:
             if item_tuple[0].allow_line(item_tuple[1]):
                 self.endpoint_combinations.append(item_tuple)
 
-    def create_best_fit_line(self, entry):
-        # only create lines for this entry for non-white spaces
-        if entry.lab[0] < WhiteThreshold:
-            start_index = (entry.last_index + 1) % len(self.endpoint_combinations)
-            index = start_index
-            for item_tuple in rotated_sequence(self.endpoint_combinations, start_index):
-                key = item_tuple[0].line_id(item_tuple[1])
-                if key not in self.line_lookup:
-                    good_fit = 0
-                    bad_fit = 0
-                    p1 = item_tuple[0]
-                    p2 = item_tuple[1]
-                    if self.check_cell_collision(
-                        entry.cell_indices[0],
-                        entry.cell_indices[1],
-                        p1.location,
-                        p2.location,
-                    ):
-                        cell_list = self.get_intersecting_cells(
+        print()
+        bar = progressbar.ProgressBar(maxval=len(self.endpoint_combinations), \
+                widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+        bar.start()
+
+        processed_count = 0
+        for item_tuple in self.endpoint_combinations:
+            p1 = item_tuple[0]
+            p2 = item_tuple[1]
+
+            cell_list = self.get_intersecting_cells(
                             p1.location, p2.location
                         )
-                        if cell_list:
-                            for cell_item in cell_list:
-                                if entry.key == cell_item.key:
-                                    # this is of course a good fit
-                                    good_fit += 1
-                                else:
-                                    delta_e = compare_lab(entry.lab, cell_item.lab)
-                                    if delta_e < DeltaEGoodThreshold:
-                                        good_fit += 1
-                                    elif delta_e > DeltaEBadThreshold:
-                                        if (
-                                            cell_item.passes + 1
-                                            >= cell_item.maximum_passes
-                                        ):
-                                            bad_fit += 1
-                                    else:
-                                        if (
-                                            cell_item.passes + 1
-                                            >= cell_item.maximum_passes
-                                        ):
-                                            bad_fit += 1
 
-                            if bad_fit == 0:
-                                string_line = StringLine(
-                                    key, p1.location, p2.location, entry.ci
-                                )
-                                self.line_lookup[key] = string_line
-                                self.lines.append(string_line)
-                                entry.last_index = index
+            allowed = False
+            if cell_list:
+                allowed = True
+                layers = []
+                for layer_index in range(5):
+                    collection = ImageCellCollection()
+                    collection.add(cell_list, layer_index)
+                    collection.calculate()
+                    if collection.reserve_white:
+                        allowed = False
+                        break
 
-                                for cell_item in cell_list:
-                                    delta_e = compare_lab(entry.lab, cell_item.lab)
-                                    if delta_e < DeltaEGoodThreshold:
-                                        cell_item.passes += 1
-                index += 1
+                    if collection.median_cell and collection.transparent_ratio < TransparentRatioThreshold and collection.white_ratio < WhiteRatioThreshold and not collection.reserve_white:
+                        layers.append(collection)
+
+                if layers and allowed:
+                    sorted_layers = sorted(layers, key=lambda x: x.median_abs_deviation)
+                    best_layer = sorted_layers[0]
+
+                    key = item_tuple[0].line_id(item_tuple[1])
+                    string_line = StringLine(
+                        key, p1.location, p2.location, best_layer.median_cell.cell_ref.ci, best_layer.median_abs_deviation
+                    )
+
+                    self.lines.append(string_line)
+
+            processed_count += 1
+            bar.update(processed_count)
+
+        bar.finish()

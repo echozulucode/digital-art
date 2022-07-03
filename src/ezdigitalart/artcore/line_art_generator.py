@@ -22,7 +22,7 @@ def get_average_rgb_square(pxa, image_width, image_height, x_start, y_start, wid
             if x >= 0 and x < image_width and y >= 0 and y < image_height:
                 ci = pxa[x, y]
 
-                if len(ci) > 2:
+                if len(ci) > 3:
                     a = ci[3]
                     if a == 0:
                         transparent_count += 1
@@ -46,12 +46,25 @@ def get_average_rgb_square(pxa, image_width, image_height, x_start, y_start, wid
         return None
 
 
+def export_to_png(output_path, export_png_path = None):
+    if not export_png_path:
+        export_png_path = str(output_path) + '.png'
+
+    if pathlib.Path(output_path).exists():
+        drawing = svg2rlg(output_path)
+        renderPM.drawToFile(
+            drawing, export_png_path, fmt="PNG", bg=0x00FFFFFF
+        )
+
+
 class LineArtGenerator:
     def __init__(self) -> None:
         self.cols = 32
         self.rows = 32
         self.export_png_path = None
-        self.debug = False
+        self.debug = True
+        self.maximum_lines = 2000
+        self.maximum_rank = 20.0
 
     def convert(self, input_path, output_path):
         """
@@ -71,6 +84,10 @@ class LineArtGenerator:
         size_per_pixel = p_x if p_x > p_y else p_y
         regions_x = math.ceil(w / size_per_pixel)
         regions_y = math.ceil(h / size_per_pixel)
+        image_data.grid_size = size_per_pixel
+
+        print(f'image size = {w}, {h}\np_x = {p_x}, p_y = {p_y}\nsize_per_pixel = {size_per_pixel}')
+
         dwg = svgwrite.Drawing(
             output_path,
             profile="tiny",
@@ -87,6 +104,27 @@ class LineArtGenerator:
                     region_size = (size_per_pixel, size_per_pixel)
                     region_location = (x * size_per_pixel, y * size_per_pixel)
                     image_data.add_cell(x, y, ci, region_location, region_size)
+
+        
+        if self.debug:
+            for layer_index in range(5):
+                layer_debug_output_path = str(output_path) + "_layer" + str(layer_index) + ".svg"
+                layer_dwg = svgwrite.Drawing(
+                    layer_debug_output_path,
+                    profile="tiny",
+                    size=(regions_x * size_per_pixel, regions_y * size_per_pixel),
+                )
+
+                for item in image_data.items:
+                    if not item.is_transparent and item.layer == layer_index:
+                        x = item.cell_indices[0] * size_per_pixel
+                        y = item.cell_indices[1] * size_per_pixel
+                        ci = item.ci
+                        layer_dwg.add(
+                                layer_dwg.rect((x, y), (size_per_pixel, size_per_pixel), fill=svgwrite.rgb(ci[0], ci[1], ci[2]))
+                            )
+                layer_dwg.save()
+                export_to_png(output_path=layer_debug_output_path)
 
         # add points surrounding the image as the valid line start and end points
         for x in range(regions_x + 1):
@@ -119,44 +157,42 @@ class LineArtGenerator:
                 )
             )
 
-        image_data.initialize_best_fit()
+        image_data.create_best_fit_lines()
 
-        done = False
-        maximum_iterations = 100
-        iteration_count = 0
-        last_remaining = 0
+        if image_data.lines:
+            sorted_lines = sorted(image_data.lines, key=lambda x: x.rank, reverse=False)
 
-        while not done:
-            remaining = 0
-            for entry in image_data.items:
-                if entry.passes < entry.desired_passes:
-                    remaining += entry.desired_passes - entry.passes
-                    image_data.create_best_fit_line(entry)
+            total_lines = len(sorted_lines)
+            best_rank = sorted_lines[0].rank
+            worst_rank = sorted_lines[total_lines - 1].rank
+            print(f'total lines = {total_lines}, best rank = {best_rank}, worst rank = {worst_rank}')
+            self.minimum_lines = 2000
+            self.maximum_lines = total_lines / 2
+            if self.maximum_lines < self.minimum_lines:
+                self.maximum_lines = self.minimum_lines
 
-            maximum_iterations -= 1
+            self.maximum_rank = 40.0
 
-            if remaining == 0:
-                done = True
-            elif remaining == last_remaining:
-                done = True
-            elif maximum_iterations <= 0:
-                done = True
+            applied_lines = 0
+            for line in sorted_lines:
+                if line.rank > self.maximum_rank:
+                    break
 
-            iteration_count += 1
-            if not done:
-                print(f"iterations = {iteration_count}, remaining = {remaining}")
-
-            last_remaining = remaining
-
-        for line in image_data.lines:
-            dwg.add(
-                dwg.line(
-                    line.p1,
-                    line.p2,
-                    stroke=svgwrite.rgb(line.ci[0], line.ci[1], line.ci[2]),
-                    stroke_width=1,
+                dwg.add(
+                    dwg.line(
+                        line.p1,
+                        line.p2,
+                        stroke=svgwrite.rgb(line.ci[0], line.ci[1], line.ci[2]),
+                        stroke_width=1,
+                    )
                 )
-            )
+
+                applied_lines += 1
+
+                if applied_lines > self.maximum_lines:
+                    break
+
+            print(f'applied_lines = {applied_lines}, worst rank = {sorted_lines[applied_lines-1].rank}')
 
         if self.debug:
             # output our svg image as raw xml
@@ -166,8 +202,4 @@ class LineArtGenerator:
         dwg.save()
 
         if self.export_png_path:
-            if pathlib.Path(output_path).exists():
-                drawing = svg2rlg(output_path)
-                renderPM.drawToFile(
-                    drawing, self.export_png_path, fmt="PNG", bg=0x00FFFFFF
-                )
+            export_to_png(output_path=output_path, export_png_path=self.export_png_path)

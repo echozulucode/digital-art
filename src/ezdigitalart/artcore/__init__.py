@@ -4,3 +4,4 @@ from .image_data import ImageData
 from .line_art_generator import LineArtGenerator
 from .image_point import ImagePoint
 from .string_line import StringLine
+from .image_cell_collection import ImageCellCollection
